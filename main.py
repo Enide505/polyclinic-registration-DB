@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import psycopg2
 from psycopg2 import Error
+from tkinter import simpledialog
+
 
 
 class ClinicApp:
@@ -121,6 +123,10 @@ class ClinicApp:
             self.create_add_doctor_fields()
         elif action == "Уволить врача":
             self.create_remove_doctor_fields()
+        elif action == "Показать адрес, дату заболевания, диагноз больного":
+            self.create_patient_search_field()
+        elif action == "Показать кабинет и расписание врача":
+            self.create_doctor_search_field()
 
     def create_add_patient_fields(self):
         tk.Label(self.additional_fields_frame, text="ФИО:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -171,6 +177,20 @@ class ClinicApp:
         self.remove_doctor_entry = tk.Entry(self.additional_fields_frame, width=40)
         self.remove_doctor_entry.grid(row=0, column=1, padx=5, pady=5)
 
+    def create_patient_search_field(self):
+        tk.Label(self.additional_fields_frame, text="Введите ФИО больного:").grid(
+            row=0, column=0, padx=5, pady=5, sticky="w"
+        )
+        self.patient_name_entry = tk.Entry(self.additional_fields_frame, width=40)
+        self.patient_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    def create_doctor_search_field(self):
+        tk.Label(self.additional_fields_frame, text="Введите ФИО врача:").grid(
+            row=0, column=0, padx=5, pady=5, sticky="w"
+        )
+        self.doctor_name_entry = tk.Entry(self.additional_fields_frame, width=40)
+        self.doctor_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
     def perform_action(self):
         action = self.action_combo.get()
         self.result_text.delete("1.0", tk.END)
@@ -181,6 +201,10 @@ class ClinicApp:
             self.add_new_doctor()
         elif action == "Уволить врача":
             self.remove_doctor()
+        elif action == "Показать адрес, дату заболевания, диагноз больного":
+            self.show_patient_details()
+        elif action == "Показать кабинет и расписание врача":
+            self.show_doctor_schedule()
 
     def add_new_patient(self):
         full_name = self.full_name_entry.get().strip()
@@ -202,6 +226,48 @@ class ClinicApp:
             self.result_text.insert("1.0", f"Добавлен новый больной: {full_name}")
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось добавить больного: {e}")
+
+    def show_patient_details(self):
+        patient_name = self.patient_name_entry.get().strip()
+        if not patient_name:
+            messagebox.showerror("Ошибка", "Введите ФИО больного!")
+            return
+
+        query = """
+            SELECT address, disease_date, diagnosis
+            FROM Patients
+            WHERE full_name = %s;
+        """
+        result = self.execute_query(query, (patient_name,))
+        if result:
+            address, disease_date, diagnosis = result[0]
+            self.result_text.insert(
+                "1.0",
+                f"Больной: {patient_name}\nАдрес: {address}\nДата заболевания: {disease_date}\nДиагноз: {diagnosis}"
+            )
+        else:
+            messagebox.showerror("Ошибка", f"Пациент с ФИО '{patient_name}' не найден.")
+
+    def show_doctor_schedule(self):
+        doctor_name = self.doctor_name_entry.get().strip()
+        if not doctor_name:
+            messagebox.showerror("Ошибка", "Введите ФИО врача!")
+            return
+
+        query = """
+            SELECT room_number, schedule
+            FROM Doctors
+            WHERE full_name = %s;
+        """
+        result = self.execute_query(query, (doctor_name,))
+        if result:
+            room_number, schedule = result[0]
+            self.result_text.insert(
+                "1.0",
+                f"Врач: {doctor_name}\nКабинет: {room_number}\nРасписание: {schedule}"
+            )
+        else:
+            messagebox.showerror("Ошибка", f"Врач с ФИО '{doctor_name}' не найден.")
 
     def add_new_doctor(self):
         full_name = self.doctor_name_entry.get().strip()
