@@ -127,6 +127,8 @@ class ClinicApp:
             self.create_patient_search_field()
         elif action == "Показать кабинет и расписание врача":
             self.create_doctor_search_field()
+        elif action == "Изменить диагноз":
+            self.create_diagnosis_update_fields()
 
     def create_add_patient_fields(self):
         tk.Label(self.additional_fields_frame, text="ФИО:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -191,6 +193,19 @@ class ClinicApp:
         self.doctor_name_entry = tk.Entry(self.additional_fields_frame, width=40)
         self.doctor_name_entry.grid(row=0, column=1, padx=5, pady=5)
 
+    def create_diagnosis_update_fields(self):
+        tk.Label(self.additional_fields_frame, text="Введите ФИО больного:").grid(
+            row=0, column=0, padx=5, pady=5, sticky="w"
+        )
+        self.patient_name_entry = tk.Entry(self.additional_fields_frame, width=40)
+        self.patient_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(self.additional_fields_frame, text="Введите новый диагноз:").grid(
+            row=1, column=0, padx=5, pady=5, sticky="w"
+        )
+        self.new_diagnosis_entry = tk.Entry(self.additional_fields_frame, width=40)
+        self.new_diagnosis_entry.grid(row=1, column=1, padx=5, pady=5)
+
     def perform_action(self):
         action = self.action_combo.get()
         self.result_text.delete("1.0", tk.END)
@@ -205,6 +220,8 @@ class ClinicApp:
             self.show_patient_details()
         elif action == "Показать кабинет и расписание врача":
             self.show_doctor_schedule()
+        elif action == "Изменить диагноз":
+            self.update_patient_diagnosis()
 
     def add_new_patient(self):
         full_name = self.full_name_entry.get().strip()
@@ -320,6 +337,27 @@ class ClinicApp:
             self.result_text.insert("1.0", f"Врач удален: {full_name}")
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось удалить врача: {e}")
+
+    def update_patient_diagnosis(self):
+        patient_name = self.patient_name_entry.get().strip()
+        new_diagnosis = self.new_diagnosis_entry.get().strip()
+
+        if not (patient_name and new_diagnosis):
+            messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
+            return
+
+        query = """
+            UPDATE Patients
+            SET diagnosis = %s
+            WHERE full_name = %s;
+        """
+        result = self.execute_query(query, (new_diagnosis, patient_name))
+
+        if result is None:  # Проверка на успешность выполнения запроса
+            messagebox.showinfo("Успех", f"Диагноз для '{patient_name}' успешно обновлён.")
+            self.result_text.insert("1.0", f"Пациент: {patient_name}\nНовый диагноз: {new_diagnosis}")
+        else:
+            messagebox.showerror("Ошибка", f"Не удалось обновить диагноз для '{patient_name}'.")
 
 
 if __name__ == "__main__":
