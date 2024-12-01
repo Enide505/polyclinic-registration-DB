@@ -96,6 +96,7 @@ class ClinicApp:
         elif self.user_role == "admin":
             self.action_combo["values"] = [
                 "Добавить нового больного",
+                "Удалить больного",
                 "Уволить врача",
                 "Изменить диагноз",
                 "Добавить нового врача",
@@ -119,6 +120,8 @@ class ClinicApp:
 
         if action == "Добавить нового больного":
             self.create_add_patient_fields()
+        elif action == "Удалить больного":
+            self.create_delete_patient_fields()
         elif action == "Добавить нового врача":
             self.create_add_doctor_fields()
         elif action == "Уволить врача":
@@ -179,6 +182,13 @@ class ClinicApp:
         self.remove_doctor_entry = tk.Entry(self.additional_fields_frame, width=40)
         self.remove_doctor_entry.grid(row=0, column=1, padx=5, pady=5)
 
+    def create_delete_patient_fields(self):
+        tk.Label(self.additional_fields_frame, text="Введите ФИО больного:").grid(
+            row=0, column=0, padx=5, pady=5, sticky="w"
+        )
+        self.patient_name_entry = tk.Entry(self.additional_fields_frame, width=40)
+        self.patient_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
     def create_patient_search_field(self):
         tk.Label(self.additional_fields_frame, text="Введите ФИО больного:").grid(
             row=0, column=0, padx=5, pady=5, sticky="w"
@@ -212,6 +222,8 @@ class ClinicApp:
 
         if action == "Добавить нового больного":
             self.add_new_patient()
+        elif action == "Удалить больного":
+            self.delete_patient()
         elif action == "Добавить нового врача":
             self.add_new_doctor()
         elif action == "Уволить врача":
@@ -337,6 +349,22 @@ class ClinicApp:
             self.result_text.insert("1.0", f"Врач удален: {full_name}")
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось удалить врача: {e}")
+
+    def delete_patient(self):
+        patient_name = self.patient_name_entry.get().strip()
+
+        if not patient_name:
+            messagebox.showerror("Ошибка", "Поле 'ФИО больного' не должно быть пустым!")
+            return
+
+        query = "DELETE FROM Patients WHERE full_name = %s;"
+        result = self.execute_query(query, (patient_name,))
+        print(result)
+        if result is None:  # Если запрос выполнен успешно
+            messagebox.showinfo("Успех", f"Пациент '{patient_name}' успешно удалён.")
+            self.result_text.insert("1.0", f"Удалён больной: {patient_name}")
+        else:
+            messagebox.showerror("Ошибка", f"Не удалось удалить пациента '{patient_name}'. Возможно, он не существует.")
 
     def update_patient_diagnosis(self):
         patient_name = self.patient_name_entry.get().strip()
