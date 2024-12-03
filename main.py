@@ -132,6 +132,8 @@ class ClinicApp:
             self.create_doctor_search_field()
         elif action == "Изменить диагноз":
             self.create_diagnosis_update_fields()
+        elif action == "Показать всех больных врача":
+            self.create_doctor_search_field()
 
     def create_add_patient_fields(self):
         tk.Label(self.additional_fields_frame, text="ФИО:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -151,6 +153,13 @@ class ClinicApp:
         )
         self.disease_date_entry = tk.Entry(self.additional_fields_frame, width=40)
         self.disease_date_entry.grid(row=3, column=1, padx=5, pady=5)
+
+        tk.Label(self.additional_fields_frame, text="Врач:").grid(row=4, column=0, padx=5, pady=5, sticky="e")
+        self.doctor_combo = ttk.Combobox(self.additional_fields_frame, state="readonly", width=38)
+        self.doctor_combo.grid(row=4, column=1, padx=5, pady=5)
+
+        doctors = self.execute_query("SELECT full_name FROM Doctors;")
+        self.doctor_combo["values"] = [doctor[0] for doctor in doctors] if doctors else []
 
     def create_add_doctor_fields(self):
         tk.Label(self.additional_fields_frame, text="ФИО:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -234,25 +243,43 @@ class ClinicApp:
             self.show_doctor_schedule()
         elif action == "Изменить диагноз":
             self.update_patient_diagnosis()
+        elif action == "Показать всех больных врача":
+            self.show_patients_of_doctor()
 
     def add_new_patient(self):
         full_name = self.full_name_entry.get().strip()
         address = self.address_entry.get().strip()
         diagnosis = self.diagnosis_entry.get().strip()
         disease_date = self.disease_date_entry.get().strip()
+        doctor_name = self.doctor_combo.get().strip() if self.doctor_combo.get() else None
 
         if not (full_name and address and diagnosis and disease_date):
-            messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
+            messagebox.showerror("Ошибка", "Все поля (кроме врача) должны быть заполнены!")
             return
 
+        doctor_id = None
+        if doctor_name:
+            try:
+                doctor_id_query = "SELECT id FROM Doctors WHERE full_name = %s;"
+                result = self.execute_query(doctor_id_query, (doctor_name,))
+                if result:
+                    doctor_id = result[0][0]
+                else:
+                    messagebox.showerror("Ошибка", f"Врач '{doctor_name}' не найден.")
+                    return
+            except Error as e:
+                messagebox.showerror("Ошибка", f"Ошибка при поиске врача: {e}")
+                return
+
         query = """
-            INSERT INTO Patients (full_name, address, diagnosis, disease_date)
-            VALUES (%s, %s, %s, %s);
+            INSERT INTO Patients (full_name, address, diagnosis, disease_date, doctor_id)
+            VALUES (%s, %s, %s, %s, %s);
         """
         try:
-            self.execute_query(query, (full_name, address, diagnosis, disease_date))
+            self.execute_query(query, (full_name, address, diagnosis, disease_date, doctor_id))
             messagebox.showinfo("Успех", "Новый больной добавлен.")
-            self.result_text.insert("1.0", f"Добавлен новый больной: {full_name}")
+            doctor_info = f" (лечащий врач: {doctor_name})" if doctor_name else " (без врача)"
+            self.result_text.insert("1.0", f"Добавлен новый больной: {full_name}{doctor_info}\n")
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось добавить больного: {e}")
 
@@ -350,6 +377,27 @@ class ClinicApp:
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось удалить врача: {e}")
 
+    def show_patients_of_doctor(self):
+        doctor_name = self.doctor_name_entry.get().strip()
+        if not doctor_name:
+            messagebox.showerror("Ошибка", "Введите ФИО врача!")
+            return
+
+        query = """
+            SELECT p.full_name, p.address, p.diagnosis, p.disease_date
+            FROM Patients p
+            JOIN Doctors d ON p.doctor_id = d.id
+            WHERE d.full_name = %s;
+        """
+        result = self.execute_query(query, (doctor_name,))
+        if result:
+            output = f"Пациенты врача {doctor_name}:\n\n"
+            for patient in result:
+                output += f"ФИО: {patient[0]}\nАдрес: {patient[1]}\nДиагноз: {patient[2]}\nДата заболевания: {patient[3]}\n\n"
+            self.result_text.insert("1.0", output)
+        else:
+            self.result_text.insert("1.0", f"У врача {doctor_name} нет пациентов.")
+
     def delete_patient(self):
         patient_name = self.patient_name_entry.get().strip()
 
@@ -360,7 +408,7 @@ class ClinicApp:
         query = "DELETE FROM Patients WHERE full_name = %s;"
         result = self.execute_query(query, (patient_name,))
         print(result)
-        if result is None:  # Если запрос выполнен успешно
+        if result is None:
             messagebox.showinfo("Успех", f"Пациент '{patient_name}' успешно удалён.")
             self.result_text.insert("1.0", f"Удалён больной: {patient_name}")
         else:
@@ -381,7 +429,7 @@ class ClinicApp:
         """
         result = self.execute_query(query, (new_diagnosis, patient_name))
 
-        if result is None:  # Проверка на успешность выполнения запроса
+        if result is None:
             messagebox.showinfo("Успех", f"Диагноз для '{patient_name}' успешно обновлён.")
             self.result_text.insert("1.0", f"Пациент: {patient_name}\nНовый диагноз: {new_diagnosis}")
         else:
