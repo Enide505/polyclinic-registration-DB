@@ -134,6 +134,8 @@ class ClinicApp:
             self.create_diagnosis_update_fields()
         elif action == "Показать всех больных врача":
             self.create_doctor_search_field()
+        elif action == "Показать ФИО лечащего врача больного":
+            self.create_patient_search_field()
 
     def create_add_patient_fields(self):
         tk.Label(self.additional_fields_frame, text="ФИО:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -245,6 +247,9 @@ class ClinicApp:
             self.update_patient_diagnosis()
         elif action == "Показать всех больных врача":
             self.show_patients_of_doctor()
+        elif action == "Показать ФИО лечащего врача больного":
+            self.show_doctor_of_patient()
+
 
     def add_new_patient(self):
         full_name = self.full_name_entry.get().strip()
@@ -397,6 +402,28 @@ class ClinicApp:
             self.result_text.insert("1.0", output)
         else:
             self.result_text.insert("1.0", f"У врача {doctor_name} нет пациентов.")
+
+    def show_doctor_of_patient(self):
+        patient_name = self.patient_name_entry.get().strip()
+        if not patient_name:
+            messagebox.showerror("Ошибка", "Введите ФИО больного!")
+            return
+
+        query = """
+            SELECT d.full_name
+            FROM Patients p
+            JOIN Doctors d ON p.doctor_id = d.id
+            WHERE p.full_name = %s;
+        """
+        result = self.execute_query(query, (patient_name,))
+        if result:
+            doctor_name = result[0][0]
+            self.result_text.insert(
+                "1.0",
+                f"Лечащий врач больного {patient_name}: {doctor_name}"
+            )
+        else:
+            messagebox.showerror("Ошибка", f"Для больного с ФИО '{patient_name}' не найден лечащий врач.")
 
     def delete_patient(self):
         patient_name = self.patient_name_entry.get().strip()
