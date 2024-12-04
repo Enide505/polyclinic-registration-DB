@@ -100,7 +100,8 @@ class ClinicApp:
                 "Уволить врача",
                 "Изменить диагноз",
                 "Добавить нового врача",
-                "Отчет о работе поликлиники"
+                "Отчет о работе поликлиники",
+                "Добавить болезнь"
             ]
         self.action_combo.current(0)
         self.action_combo.bind("<<ComboboxSelected>>", self.display_action_fields)
@@ -136,6 +137,8 @@ class ClinicApp:
             self.create_doctor_search_field()
         elif action == "Показать ФИО лечащего врача больного":
             self.create_patient_search_field()
+        elif action == "Добавить болезнь":
+            self.create_add_disease_fields()
 
     def create_add_patient_fields(self):
         tk.Label(self.additional_fields_frame, text="ФИО:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -227,6 +230,20 @@ class ClinicApp:
         self.new_diagnosis_entry = tk.Entry(self.additional_fields_frame, width=40)
         self.new_diagnosis_entry.grid(row=1, column=1, padx=5, pady=5)
 
+    def create_add_disease_fields(self):
+        tk.Label(self.additional_fields_frame, text="Название болезни:").grid(row=0, column=0, padx=5, pady=5,
+                                                                              sticky="e")
+        self.disease_name_entry = tk.Entry(self.additional_fields_frame, width=40)
+        self.disease_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(self.additional_fields_frame, text="Симптомы:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        self.symptoms_entry = tk.Text(self.additional_fields_frame, width=40, height=5)
+        self.symptoms_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        tk.Label(self.additional_fields_frame, text="Лекарство:").grid(row=2, column=0, padx=5, pady=5, sticky="e")
+        self.medication_entry = tk.Text(self.additional_fields_frame, width=40, height=5)
+        self.medication_entry.grid(row=2, column=1, padx=5, pady=5)
+
     def perform_action(self):
         action = self.action_combo.get()
         self.result_text.delete("1.0", tk.END)
@@ -249,7 +266,8 @@ class ClinicApp:
             self.show_patients_of_doctor()
         elif action == "Показать ФИО лечащего врача больного":
             self.show_doctor_of_patient()
-
+        elif action == "Добавить болезнь":
+            self.add_new_disease()
 
     def add_new_patient(self):
         full_name = self.full_name_entry.get().strip()
@@ -366,6 +384,26 @@ class ClinicApp:
                                            f"Расписание: {schedule_text}")
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось добавить врача: {e}")
+
+    def add_new_disease(self):
+        disease_name = self.disease_name_entry.get().strip()
+        symptoms = self.symptoms_entry.get("1.0", tk.END).strip()
+        medication = self.medication_entry.get("1.0", tk.END).strip()
+
+        if not (disease_name and symptoms and medication):
+            messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
+            return
+
+        query = """
+            INSERT INTO Diseases (name, symptoms, medication)
+            VALUES (%s, %s, %s);
+        """
+        try:
+            self.execute_query(query, (disease_name, symptoms, medication))
+            messagebox.showinfo("Успех", "Новая болезнь добавлена.")
+            self.result_text.insert("1.0", f"Добавлена болезнь: {disease_name}\n")
+        except Error as e:
+            messagebox.showerror("Ошибка", f"Не удалось добавить болезнь: {e}")
 
     def remove_doctor(self):
         full_name = self.remove_doctor_entry.get().strip()
