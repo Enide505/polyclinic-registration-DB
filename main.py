@@ -224,11 +224,15 @@ class ClinicApp:
         self.patient_name_entry = tk.Entry(self.additional_fields_frame, width=40)
         self.patient_name_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        tk.Label(self.additional_fields_frame, text="Введите новый диагноз:").grid(
+        diseases = self.execute_query("SELECT name FROM Diseases;")
+        disease_names = [disease[0] for disease in diseases] if diseases else []
+
+        tk.Label(self.additional_fields_frame, text="Выберите новый диагноз:").grid(
             row=1, column=0, padx=5, pady=5, sticky="w"
         )
-        self.new_diagnosis_entry = tk.Entry(self.additional_fields_frame, width=40)
-        self.new_diagnosis_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.diagnosis_combo = ttk.Combobox(self.additional_fields_frame, values=disease_names, state="readonly",
+                                            width=40)
+        self.diagnosis_combo.grid(row=1, column=1, padx=5, pady=5)
 
     def create_add_disease_fields(self):
         tk.Label(self.additional_fields_frame, text="Название болезни:").grid(row=0, column=0, padx=5, pady=5,
@@ -481,24 +485,38 @@ class ClinicApp:
 
     def update_patient_diagnosis(self):
         patient_name = self.patient_name_entry.get().strip()
-        new_diagnosis = self.new_diagnosis_entry.get().strip()
 
-        if not (patient_name and new_diagnosis):
-            messagebox.showerror("Ошибка", "Все поля должны быть заполнены!")
+        new_diagnosis = self.diagnosis_combo.get().strip()
+        if not new_diagnosis:
+            messagebox.showerror("Ошибка", "Выберите диагноз!")
             return
 
-        query = """
+        if not (patient_name and new_diagnosis):
+            messagebox.showerror("Ошибка", "Введите имя пациента и новый диагноз!")
+            return
+
+        disease_query = "SELECT id FROM Diseases WHERE name = %s;"
+        disease_result = self.execute_query(disease_query, (new_diagnosis,))
+
+        if not disease_result:
+            messagebox.showerror("Ошибка", f"Диагноз '{new_diagnosis}' не найден в базе данных.")
+            return
+
+        disease_id = disease_result[0][0]
+
+        update_query = """
             UPDATE Patients
-            SET diagnosis = %s
+            SET diseases_id = %s
             WHERE full_name = %s;
         """
-        result = self.execute_query(query, (new_diagnosis, patient_name))
 
-        if result is None:
-            messagebox.showinfo("Успех", f"Диагноз для '{patient_name}' успешно обновлён.")
-            self.result_text.insert("1.0", f"Пациент: {patient_name}\nНовый диагноз: {new_diagnosis}")
-        else:
-            messagebox.showerror("Ошибка", f"Не удалось обновить диагноз для '{patient_name}'.")
+        try:
+            self.execute_query(update_query, (disease_id, patient_name))
+            messagebox.showinfo("Успех", f"Диагноз для пациента {patient_name} успешно обновлен.")
+            self.result_text.insert("1.0", f"Диагноз для {patient_name} обновлен на '{new_diagnosis}'.\n")
+        except Error as e:
+            messagebox.showerror("Ошибка", f"Не удалось обновить диагноз: {e}")
+
 
 
 if __name__ == "__main__":
