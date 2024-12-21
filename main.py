@@ -298,15 +298,27 @@ class ClinicApp:
                 messagebox.showerror("Ошибка", f"Ошибка при поиске врача: {e}")
                 return
 
+        try:
+            disease_id_query = "SELECT id FROM Diseases WHERE name = %s;"
+            result = self.execute_query(disease_id_query, (diagnosis,))
+            if result:
+                diseases_id = result[0][0]
+            else:
+                messagebox.showerror("Ошибка", f"Болезнь '{diagnosis}' не найдена.")
+                return
+        except Error as e:
+            messagebox.showerror("Ошибка", f"Ошибка при поиске болезни: {e}")
+            return
+
         query = """
-            INSERT INTO Patients (full_name, address, diagnosis, disease_date, doctor_id)
+            INSERT INTO Patients (full_name, address, disease_date, doctor_id, diseases_id)
             VALUES (%s, %s, %s, %s, %s);
         """
         try:
-            self.execute_query(query, (full_name, address, diagnosis, disease_date, doctor_id))
+            self.execute_query(query, (full_name, address, disease_date, doctor_id, diseases_id))
             messagebox.showinfo("Успех", "Новый больной добавлен.")
             doctor_info = f" (лечащий врач: {doctor_name})" if doctor_name else " (без врача)"
-            self.result_text.insert("1.0", f"Добавлен новый больной: {full_name}{doctor_info}\n")
+            self.result_text.insert("1.0", f"Добавлен новый больной: {full_name}{doctor_info}, болезнь: {diagnosis}\n")
         except Error as e:
             messagebox.showerror("Ошибка", f"Не удалось добавить больного: {e}")
 
@@ -317,16 +329,23 @@ class ClinicApp:
             return
 
         query = """
-            SELECT address, disease_date, diagnosis
-            FROM Patients
-            WHERE full_name = %s;
+            SELECT 
+                p.address, 
+                p.disease_date, 
+                d.name AS diagnosis
+            FROM 
+                Patients p
+            JOIN 
+                Diseases d ON p.diseases_id = d.id
+            WHERE 
+                p.full_name = %s;
         """
         result = self.execute_query(query, (patient_name,))
         if result:
             address, disease_date, diagnosis = result[0]
             self.result_text.insert(
                 "1.0",
-                f"Больной: {patient_name}\nАдрес: {address}\nДата заболевания: {disease_date}\nДиагноз: {diagnosis}"
+                f"Больной: {patient_name}\nАдрес: {address}\nДата заболевания: {disease_date}\nДиагноз: {diagnosis}\n"
             )
         else:
             messagebox.showerror("Ошибка", f"Пациент с ФИО '{patient_name}' не найден.")
@@ -431,16 +450,30 @@ class ClinicApp:
             return
 
         query = """
-            SELECT p.full_name, p.address, p.diagnosis, p.disease_date
-            FROM Patients p
-            JOIN Doctors d ON p.doctor_id = d.id
-            WHERE d.full_name = %s;
+            SELECT 
+                p.full_name AS patient_name, 
+                p.address AS patient_address, 
+                d.name AS disease_name, 
+                p.disease_date AS disease_date
+            FROM 
+                Patients p
+            JOIN 
+                Doctors doc ON p.doctor_id = doc.id
+            JOIN 
+                Diseases d ON p.diseases_id = d.id
+            WHERE 
+                doc.full_name = %s;
         """
         result = self.execute_query(query, (doctor_name,))
         if result:
             output = f"Пациенты врача {doctor_name}:\n\n"
             for patient in result:
-                output += f"ФИО: {patient[0]}\nАдрес: {patient[1]}\nДиагноз: {patient[2]}\nДата заболевания: {patient[3]}\n\n"
+                output += (
+                    f"ФИО: {patient[0]}\n"
+                    f"Адрес: {patient[1]}\n"
+                    f"Диагноз: {patient[2]}\n"
+                    f"Дата заболевания: {patient[3]}\n\n"
+                )
             self.result_text.insert("1.0", output)
         else:
             self.result_text.insert("1.0", f"У врача {doctor_name} нет пациентов.")
